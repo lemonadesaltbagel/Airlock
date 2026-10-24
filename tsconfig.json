@@ -1,0 +1,20 @@
+{
+  "files": [],
+  "references": [
+    {
+      "path": "packages/policy-data"
+    },
+    {
+      "path": "packages/agent"
+    },
+    {
+      "path": "packages/consult"
+    },
+    {
+      "path": "packages/broker"
+    },
+    {
+      "path": "apps/airlock"
+    }
+  ]
+}

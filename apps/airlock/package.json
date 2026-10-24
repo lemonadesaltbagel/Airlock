@@ -1,0 +1,16 @@
+{
+  "name": "@airlock/cli",
+  "version": "0.0.0",
+  "private": true,
+  "license": "Apache-2.0",
+  "type": "module",
+  "bin": {
+    "airlock": "./dist/main.js"
+  },
+  "dependencies": {
+    "@airlock/agent": "0.0.0",
+    "@airlock/broker": "0.0.0",
+    "@airlock/consult": "0.0.0",
+    "@airlock/policy-data": "0.0.0"
+  }
+}
