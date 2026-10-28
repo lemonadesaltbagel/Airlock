@@ -5,6 +5,15 @@
       "path": "packages/policy-data"
     },
     {
+      "path": "packages/sandbox"
+    },
+    {
+      "path": "packages/gateway"
+    },
+    {
+      "path": "packages/ledger"
+    },
+    {
       "path": "packages/agent"
     },
     {

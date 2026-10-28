@@ -4,7 +4,7 @@ import { bashTool } from "./bash.js";
 import { editTool, readTool, writeTool } from "./file-tools.js";
 import { grepTool } from "./grep.js";
 
-export { bashTool, truncateMiddle } from "./bash.js";
+export { bashTool, OutputCapture, truncateMiddle } from "./bash.js";
 export { editTool, readTool, writeTool } from "./file-tools.js";
 export { globToRegExp, grepTool } from "./grep.js";
 

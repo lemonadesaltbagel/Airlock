@@ -4,7 +4,7 @@
 
 Your project stays with a model running on your machine, and that model does the work. When it gets stuck on a hard technical point, Airlock asks a frontier cloud model as an outside consultant. The question is rewritten first as a small, generic example, like the minimal reproducible example an experienced developer would post on Stack Overflow. It carries no file names, identifiers, business details or code from your project. You see the exact text before it leaves.
 
-> **Status: preview.** Airlock is not yet ready for private code. There is no OS sandbox yet: commands the agent runs have your user's permissions. Use it on test projects. See [CLAIMS.md](CLAIMS.md) for exactly what is and isn't guaranteed today.
+> **Status: preview.** The sandbox and gateway are in place, but Airlock has not yet finished the dogfooding and outside review that gate use on private code. Use it on test projects for now. See [CLAIMS.md](CLAIMS.md) for exactly what is and isn't guaranteed today.
 
 ## How it works
 
@@ -20,6 +20,8 @@ your project ──► local agent (your machine) ──► stuck on a hard poin
 ```
 
 - **The local agent does the work.** It reads and edits your code, runs your tests and talks only to a model server on your machine.
+- **It runs in an OS sandbox.** The agent and every command it starts (Seatbelt on macOS, bubblewrap on Linux) can write only inside the project, cannot read your home directory, and have no network except Airlock's gateway. Other hosts, such as a package registry, are denied unless you allow them for the session.
+- **Only the gateway holds API keys.** It runs outside the sandbox, relays the agent's model calls to fixed addresses, and runs consults. It logs everything that leaves in an encrypted, tamper-evident log.
 - **Consults are abstracted.** A consult is rewritten from scratch as a minimal example in a neutral setting. Project constants and example values are changed, and the technical question is kept exactly.
 - **A deterministic gate checks every outbound message.** Nothing is sent if it contains a project identifier, a project string literal, code copied from your repository, a secret, or a term you declared as a crown jewel.
 - **Cover setting.** Each project gets a fictional setting, which you choose at `airlock init`. Every consult is told in it, so a history of questions doesn't point back to what you're building. The question itself never changes, and safety-critical topics never get a cover story.
@@ -33,11 +35,12 @@ More detail: [docs/how-it-works.md](docs/how-it-works.md).
 
 ## Quick start
 
-Requires Node.js ≥ 22.19 and, for the default profile, an OpenAI-compatible local model server such as [llama.cpp](https://github.com/ggml-org/llama.cpp)'s `llama-server` on `127.0.0.1:9931`.
+Requires macOS or Linux, Node.js ≥ 22.21, and, for the default profile, an OpenAI-compatible local model server such as [llama.cpp](https://github.com/ggml-org/llama.cpp)'s `llama-server` on `127.0.0.1:9931` (or set `AIRLOCK_LOCAL_URL`). On Linux the sandbox needs `bubblewrap`, `socat` and `ripgrep`.
 
 ```sh
 git clone https://github.com/lemonadesaltbagel/Airlock.git && cd Airlock
 npm install && npm run build
+node apps/airlock/dist/main.js doctor                     # check the sandbox on this machine
 
 cd path/to/your-test-project
 node /path/to/Airlock/apps/airlock/dist/main.js init     # cover setting + crown-jewel file
@@ -53,6 +56,9 @@ node /path/to/Airlock/apps/airlock/dist/main.js run "fix the failing date parsin
 | `airlock run <task>` | Runs the local agent on the current project |
 | `airlock run --approve-consults ask\|jewels\|auto\|never` | How consults are approved (default `ask`) |
 | `airlock run --no-consult` | Never consult; everything stays local |
+| `airlock run --allow-host registry.npmjs.org` | Let the sandboxed agent reach a host without asking (otherwise it asks, or denies without a terminal) |
+| `airlock log` | Shows what left the machine for this project: consults, model calls, connection decisions, sandbox denials |
+| `airlock doctor` | Checks that the OS sandbox blocks every known way out on this machine |
 | `airlock policy <provider> <model>` | Shows the data policy Airlock has on record for a cloud model, and when it was verified |
 | `airlock profiles` | Lists model profiles |
 
@@ -78,9 +84,11 @@ Consults use your own API key; Airlock never proxies through a subscription or a
 
 - [x] Local agent with workspace-confined tools and a scrubbed environment
 - [x] Abstracted consults with a deterministic gate, crown jewels, cover settings and approval
-- [ ] OS sandbox around the whole agent (macOS Seatbelt, Linux bubblewrap)
-- [ ] Egress gateway: the only process holding cloud keys; every outbound request logged
-- [ ] Encrypted, tamper-evident outbound log and a review UI
+- [x] OS sandbox around the whole agent (macOS Seatbelt, Linux bubblewrap)
+- [x] Gateway: the only process holding cloud keys; every outbound request logged
+- [x] Encrypted, tamper-evident outbound log
+- [ ] Review screen for consults, connection requests and the log
+- [ ] Local model server in its own no-network sandbox
 - [ ] Cumulative disclosure tracking across sessions
 - [ ] One-step install and hardware-tier detection
 

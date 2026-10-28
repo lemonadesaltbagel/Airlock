@@ -1,57 +1,50 @@
-import { createHash } from "node:crypto";
-import { homedir } from "node:os";
-import { join } from "node:path";
-import { createInterface } from "node:readline/promises";
 import { buildModels, type Profile, type Workspace } from "@airlock/agent";
 import { createAbstractor } from "@airlock/broker";
 import {
   buildRepoIndex,
-  consultTool,
   createConsultant,
   createConsultService,
   createGate,
-  createJsonlConsultLog,
   getOrCreateUserId,
   loadJewels,
+  serviceHandler,
   type ConfirmFn,
+  type ConsultHandler,
+  type ConsultLog,
 } from "@airlock/consult";
-import type { AgentTool } from "@earendil-works/pi-agent-core";
 import type { Models } from "@earendil-works/pi-ai";
+import type { Prompter } from "./prompter.js";
 
 export interface ConsultSetupOptions {
   profile: Profile;
   workspace: Workspace;
+  /** Models for the abstraction step (the profile's quality role), called from the trusted side. */
   models: Models;
   /**
    * "ask" prompts for every consult; "jewels" sends other consults without asking but always asks
    * for consults about crown-jewel files; "auto" never asks; "never" declines everything.
    */
   approval: "ask" | "jewels" | "auto" | "never";
-  log: (line: string) => void;
+  log: ConsultLog;
+  prompter: Prompter;
+  print: (line: string) => void;
 }
 
-/** Plaintext for now, outside every workspace. To be replaced by an encrypted log. */
-export function consultLogPath(workspaceRoot: string): string {
-  const key = createHash("sha256").update(workspaceRoot).digest("hex").slice(0, 16);
-  return join(homedir(), ".airlock", "dev-logs", key, "consults.jsonl");
-}
-
-function terminalConfirm(log: (line: string) => void): ConfirmFn {
+function terminalConfirm(prompter: Prompter, print: (line: string) => void): ConfirmFn {
   return async (outbound) => {
-    log("\n──────── consult: this exact text will be sent ────────");
-    log(outbound);
-    log("────────────────────────────────────────────────────────");
-    const rl = createInterface({ input: process.stdin, output: process.stderr });
-    try {
-      const answer = await rl.question("Send this to the consultant? [y/N] ");
-      return /^y(es)?$/i.test(answer.trim());
-    } finally {
-      rl.close();
+    if (!prompter.interactive) {
+      print("airlock: a consult needs your approval, but there is no terminal to ask on; declined.");
+      return false;
     }
+    return prompter.confirm(
+      "Send this to the consultant?",
+      ["", "──────── consult: this exact text will be sent ────────", outbound, "────────────────────────────────────────────────────────"].join("\n"),
+    );
   };
 }
 
-export async function createConsultTools(opts: ConsultSetupOptions): Promise<{ tools: (ws: Workspace) => AgentTool<any>[]; logPath: string }> {
+/** The consult path, run in the gateway: the sandboxed agent only sees the answers. */
+export async function createConsultHandler(opts: ConsultSetupOptions): Promise<ConsultHandler> {
   // The consultant is never one of the agent's own roles, so its provider is set up separately.
   const consultantModels = buildModels({ ...opts.profile, roles: { loop: opts.profile.consultant, quality: opts.profile.consultant } });
   const consultantModel = consultantModels.getModel(opts.profile.consultant.provider, opts.profile.consultant.model);
@@ -63,9 +56,8 @@ export async function createConsultTools(opts: ConsultSetupOptions): Promise<{ t
   const repo = await buildRepoIndex(opts.workspace);
   const jewels = await loadJewels(opts.workspace, repo.files);
   const gate = createGate(repo, jewels);
-  const logPath = consultLogPath(opts.workspace.root);
-  const confirm: ConfirmFn | undefined =
-    opts.approval === "ask" ? terminalConfirm(opts.log) : opts.approval === "never" ? async () => false : undefined;
+  const ask = terminalConfirm(opts.prompter, opts.print);
+  const confirm: ConfirmFn | undefined = opts.approval === "ask" ? ask : opts.approval === "never" ? async () => false : undefined;
 
   const service = createConsultService({
     mode: "abstracted",
@@ -77,7 +69,7 @@ export async function createConsultTools(opts: ConsultSetupOptions): Promise<{ t
       ...(opts.profile.consultant.thinking ? { thinking: opts.profile.consultant.thinking } : {}),
       userId: getOrCreateUserId(),
     }),
-    log: createJsonlConsultLog(logPath),
+    log: opts.log,
     abstractor: createAbstractor({
       models: opts.models,
       model: qualityModel,
@@ -88,7 +80,7 @@ export async function createConsultTools(opts: ConsultSetupOptions): Promise<{ t
     ...(confirm ? { confirm } : {}),
     jewelFiles: jewels.files,
     jewelPolicy: opts.approval === "never" ? "block" : "confirm",
-    confirmJewels: opts.approval === "never" ? async () => false : terminalConfirm(opts.log),
+    confirmJewels: opts.approval === "never" ? async () => false : ask,
   });
-  return { tools: () => [consultTool(service)], logPath };
+  return serviceHandler(service);
 }

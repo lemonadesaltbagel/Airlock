@@ -7,7 +7,7 @@
     "apps/*"
   ],
   "engines": {
-    "node": ">=22.19.0"
+    "node": ">=22.21.0"
   },
   "scripts": {
     "build": "tsc -b",

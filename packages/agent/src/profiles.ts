@@ -2,11 +2,15 @@ import type { ThinkingLevel } from "@earendil-works/pi-agent-core";
 
 /**
  * `local`: every agent role runs on the user's machine. The only profile real projects may use.
- * `dev-cloud`: the "local" roles are served by cloud models so the pipeline can be iterated
- * quickly. It sends full project context to the cloud, so it is restricted to
- * synthetic or public projects (see devcloud.ts).
+ * `dev-cloud` / `dev-cloud-deepseek`: the "local" roles are served by cloud models (Anthropic, or
+ * cheaper DeepSeek models) so the pipeline can be iterated quickly. They send full project context
+ * to the cloud, so they are restricted to synthetic or public projects (see devcloud.ts).
  */
-export type ProfileName = "local" | "dev-cloud";
+export type ProfileName = "local" | "dev-cloud" | "dev-cloud-deepseek";
+
+export function isDevCloud(name: ProfileName): boolean {
+  return name !== "local";
+}
 
 export interface ModelRef {
   provider: string;
@@ -72,9 +76,17 @@ export const PROFILES: Record<ProfileName, Profile> = {
     },
     consultant: CONSULTANT,
   },
+  "dev-cloud-deepseek": {
+    name: "dev-cloud-deepseek",
+    roles: {
+      loop: { provider: "deepseek", model: "deepseek-flash", thinking: "high" },
+      quality: { provider: "deepseek", model: "deepseek-flash", thinking: "high" },
+    },
+    consultant: { provider: "deepseek", model: "deepseek-v4-pro", thinking: "high" },
+  },
 };
 
 export function getProfile(name: string): Profile {
-  if (name === "local" || name === "dev-cloud") return PROFILES[name];
-  throw new Error(`unknown profile "${name}" (expected "local" or "dev-cloud")`);
+  if (Object.hasOwn(PROFILES, name)) return PROFILES[name as ProfileName];
+  throw new Error(`unknown profile "${name}" (expected ${Object.keys(PROFILES).map((n) => `"${n}"`).join(", ")})`);
 }

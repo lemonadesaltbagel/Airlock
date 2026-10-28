@@ -2,7 +2,7 @@ import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { buildChildEnv } from "../src/env.js";
-import { bashTool, editTool, globToRegExp, grepTool, readTool, truncateMiddle, writeTool } from "../src/tools/index.js";
+import { bashTool, editTool, globToRegExp, grepTool, OutputCapture, readTool, truncateMiddle, writeTool } from "../src/tools/index.js";
 import { createWorkspace } from "../src/workspace.js";
 import { tempDir } from "./helpers.js";
 
@@ -91,6 +91,23 @@ describe("bash", () => {
     expect(text(r)).toContain("timed out after 1000 ms");
     expect(r.details.timedOut).toBe(true);
   });
+
+  it("keeps bounded output that renders like truncating the whole text", () => {
+    for (const total of [10, 50, 51, 200, 5000]) {
+      const full = Array.from({ length: total }, (_, i) => String.fromCharCode(97 + (i % 26))).join("");
+      const capture = new OutputCapture(50);
+      for (let i = 0; i < full.length; i += 7) capture.push(full.slice(i, i + 7));
+      expect(capture.text(), String(total)).toBe(truncateMiddle(full, 50));
+    }
+  });
+
+  it("stops a command that prints without end, instead of running out of memory", async () => {
+    const r = await bashTool(createWorkspace(tempDir())).execute("1", { command: "yes", timeout_ms: 60_000 });
+    expect(r.details.outputLimited).toBe(true);
+    expect(r.details.timedOut).toBe(false);
+    expect(text(r)).toContain("stopped: printed more than");
+    expect(text(r).length).toBeLessThan(40_000);
+  }, 30_000);
 
   it("truncates the middle of long output", () => {
     const out = truncateMiddle("a".repeat(100) + "b".repeat(100), 50);

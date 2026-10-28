@@ -19,6 +19,11 @@ export interface StuckDetectorOptions {
    * models tend to ignore suggestions.
    */
   mode?: "suggest" | "require";
+  /**
+   * In require mode, also force the next model request to call the consult tool (see
+   * AirlockAgent.forceToolOnNextRequest). Without it the requirement is only an instruction.
+   */
+  forceTool?: (toolName: string) => void;
 }
 
 const TEST_COMMAND = /\b(unittest|pytest|py\.test|npm (run )?test|vitest|jest|go test|cargo test|mvn test|gradle test|rspec|phpunit)\b/;
@@ -64,6 +69,7 @@ export function attachStuckDetector(agent: Agent, opts: StuckDetectorOptions = {
         if (reason) {
           nudged = true;
           agent.steer({ role: "user", content: (opts.mode === "require" ? STUCK_REQUIRE : STUCK_NUDGE)(reason), timestamp: Date.now() });
+          if (opts.mode === "require") opts.forceTool?.(consultTool);
         }
         break;
       }

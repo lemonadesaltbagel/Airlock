@@ -2,6 +2,30 @@
 
 Airlock splits a coding agent in two. A **local model** holds your whole project and does all the work. A **frontier cloud model** is consulted only as an outside expert, through questions that are rewritten so they don't describe your project.
 
+## The sandbox and the gateway
+
+`airlock run` starts two things:
+
+- **The gateway** runs on your account, outside the sandbox. It is a small server on `127.0.0.1` that holds
+  your API keys, and it is the only way out. It relays the agent's own model calls to fixed addresses:
+  your local model server, or a cloud stand-in in a `dev-cloud` profile. It allows only the profile's
+  models, strips any credentials the agent sends, and logs every call. It also runs consults, so the
+  consultant's key never enters the sandbox.
+- **The agent** runs in a child process inside the operating system's sandbox (Seatbelt on macOS,
+  bubblewrap on Linux), together with every command it starts: shells, test runners, package managers.
+  - It can write only inside the project and a scratch directory for the session.
+  - It cannot read your home directory, apart from toolchains such as Node or Python installs.
+  - It cannot write files that other programs later run on their own: git hooks and config, husky
+    hooks, `.envrc`, editor settings, shell startup files.
+  - Its network is cut off at the kernel, except for one route to the gateway through the sandbox's proxy.
+  - A connection to any other host, a package registry say, goes to you: allowed for the session if you
+    say yes, or with `--allow-host`, and denied otherwise.
+
+After each session Airlock checks the project for autorun files the agent created or changed and tells you.
+`airlock log` shows what happened. `airlock doctor` runs about thirty escape attempts inside the sandbox
+on your machine (direct connections, DNS, loopback services, Unix sockets, reading `~/.ssh`, planting a git
+hook…) and reports any that got through.
+
 ## What leaves your machine, and what doesn't
 
 | | Leaves the machine? |
@@ -49,7 +73,9 @@ You bring your own API key; consults go directly from your machine to the provid
 
 ## Limits
 
-- **There is no OS sandbox yet.** Commands the agent runs have your user's permissions, so Airlock is not ready for private code. The sandbox and egress gateway are next on the roadmap.
+- **Airlock is a preview.** It has not finished the dogfooding period and outside review that gate use on private code.
+- **A host you allow is a channel.** Allowing a package registry for the session lets the agent send anything to it.
+- **No local servers in the sandbox.** Test suites that listen on a port fail inside it.
 - **The rewrite is done by a model.** The gate catches literal leaks; a paraphrase of a distinctive idea can still get through.
 - **Usage metadata is visible to the provider:** that you made requests, when, and how large they were.
 - **Nothing outside Airlock's own process tree is covered.**

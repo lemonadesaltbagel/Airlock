@@ -1,6 +1,6 @@
 import { existsSync } from "node:fs";
 import { join } from "node:path";
-import type { ProfileName } from "./profiles.js";
+import { isDevCloud, type ProfileName } from "./profiles.js";
 
 /**
  * Marker a human places in a project to confirm it is synthetic or public and may be sent
@@ -13,7 +13,7 @@ export class ProfileNotAllowedError extends Error {
 }
 
 export function assertProfileAllowed(profile: ProfileName, workspaceRoot: string, opts: { devCloudFlag: boolean }): void {
-  if (profile !== "dev-cloud") return;
+  if (!isDevCloud(profile)) return;
   if (!opts.devCloudFlag) {
     throw new ProfileNotAllowedError(
       "the dev-cloud profile sends the full project to cloud models; pass --dev-cloud to confirm",

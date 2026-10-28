@@ -6,6 +6,9 @@
     { "path": "../../packages/agent" },
     { "path": "../../packages/broker" },
     { "path": "../../packages/consult" },
-    { "path": "../../packages/policy-data" }
+    { "path": "../../packages/gateway" },
+    { "path": "../../packages/ledger" },
+    { "path": "../../packages/policy-data" },
+    { "path": "../../packages/sandbox" }
   ]
 }

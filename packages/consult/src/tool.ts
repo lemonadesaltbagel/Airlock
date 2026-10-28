@@ -1,7 +1,8 @@
 import type { AgentTool } from "@earendil-works/pi-agent-core";
 import { Type } from "@earendil-works/pi-ai";
-import type { ConsultService } from "./service.js";
-import { CONSULT_KINDS, type ConsultKind } from "./types.js";
+import type { ConsultHandler, ConsultReply } from "./remote.js";
+import type { ConsultToolResult } from "./service.js";
+import { CONSULT_KINDS, type ConsultKind, type ConsultRequest } from "./types.js";
 
 const consultParams = Type.Object({
   kind: Type.Union(
@@ -22,7 +23,20 @@ export interface ConsultToolDetails {
   recordId: string;
 }
 
-export function consultTool(service: ConsultService): AgentTool<typeof consultParams, ConsultToolDetails> {
+/** Anything that runs consults: the in-process service, or the gateway through a remote handler. */
+export interface ConsultRunner {
+  handle(request: ConsultRequest, signal?: AbortSignal): Promise<ConsultToolResult | ConsultReply>;
+}
+
+export function toReply(result: ConsultToolResult | ConsultReply): ConsultReply {
+  return "record" in result ? { ok: result.ok, text: result.text, outcome: result.record.outcome, recordId: result.record.id } : result;
+}
+
+export function serviceHandler(service: ConsultRunner): ConsultHandler {
+  return { handle: async (request, signal) => toReply(await service.handle(request, signal)) };
+}
+
+export function consultTool(service: ConsultRunner): AgentTool<typeof consultParams, ConsultToolDetails> {
   return {
     name: "consult_expert",
     label: "Consult expert",
@@ -31,13 +45,15 @@ export function consultTool(service: ConsultService): AgentTool<typeof consultPa
     parameters: consultParams,
     executionMode: "sequential",
     async execute(_id, params, signal) {
-      const result = await service.handle(
+      const result = toReply(
+        await service.handle(
         { kind: params.kind as ConsultKind, problem: params.problem, files: params.files ?? [], ...(params.attempts ? { attempts: params.attempts } : {}) },
-        signal,
+          signal,
+        ),
       );
       return {
         content: [{ type: "text", text: result.text }],
-        details: { ok: result.ok, outcome: result.record.outcome, recordId: result.record.id },
+        details: { ok: result.ok, outcome: result.outcome, recordId: result.recordId },
         isError: !result.ok,
       };
     },

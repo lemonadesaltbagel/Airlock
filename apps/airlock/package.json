@@ -11,6 +11,9 @@
     "@airlock/agent": "0.0.0",
     "@airlock/broker": "0.0.0",
     "@airlock/consult": "0.0.0",
-    "@airlock/policy-data": "0.0.0"
+    "@airlock/gateway": "0.0.0",
+    "@airlock/ledger": "0.0.0",
+    "@airlock/policy-data": "0.0.0",
+    "@airlock/sandbox": "0.0.0"
   }
 }

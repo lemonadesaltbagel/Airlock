@@ -1,0 +1,13 @@
+{
+  "name": "@airlock/sandbox",
+  "version": "0.0.0",
+  "private": true,
+  "license": "Apache-2.0",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": { ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" } },
+  "dependencies": {
+    "@anthropic-ai/sandbox-runtime": "0.0.81"
+  }
+}

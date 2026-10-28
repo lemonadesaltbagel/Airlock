@@ -1,6 +1,6 @@
 import type { StreamFn } from "@earendil-works/pi-agent-core";
 import { lazyStream, type Api, type Model } from "@earendil-works/pi-ai";
-import type { Profile } from "./profiles.js";
+import { isDevCloud, type Profile } from "./profiles.js";
 
 /**
  * Fail-closed check on where the agent's LLM requests go. This is defence in depth against
@@ -39,7 +39,7 @@ export function checkEndpoint(baseUrl: string, rule: EgressRule): EndpointCheck 
 
 /** Origins the agent may reach under a profile: loopback always, cloud only for dev-cloud roles. */
 export function egressRuleFor(profile: Profile, models: { getModel(provider: string, id: string): Model<Api> | undefined }): EgressRule {
-  if (profile.name === "local") return { allowedOrigins: [] };
+  if (!isDevCloud(profile.name)) return { allowedOrigins: [] };
   const origins = new Set<string>();
   for (const ref of Object.values(profile.roles)) {
     const model = models.getModel(ref.provider, ref.model);
